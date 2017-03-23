@@ -1,0 +1,143 @@
+<%
+import SwiftEngine
+@server(import) package: "SwiftyJSON"
+@server(import) package: "SQLiteStORM"
+import StORM
+
+let dbPath = "./private/main.db"
+SQLiteConnector.db = dbPath
+
+
+let reqVal = Request.server["REQUEST_METHOD"] ?? ""
+
+func main(){
+
+    // let messages = Message()
+    // try? messages.setupTable()
+
+    Response.contentType("application/json")
+
+    switch(reqVal){
+        case "GET":
+            readMessages();
+            //Response("Get")
+            // let dict : [String:Any] = ["Key1": "Val1", "Key2": 777, "Key3": false, "Key4":55.55]
+            // let json = JSON(dict)
+            // if let jsonString = json.rawString() {
+            // 	Response.status(200).write(jsonString).end()
+            // }
+
+            //readMessages()
+            break
+        case "POST":
+            //Response("Post")
+            createMessage()
+            break
+        case "DELETE":
+            Response("Delete")
+            //let messageId = Request.routeParams[2]  // Request.server["RAW_DOCUMENT_URI"]!
+            //Response("DELETE \(messageId) Method not supported")
+            break;
+        default:
+            Response("Method not supported")
+            break
+
+    }
+
+}
+
+func createMessage(){
+
+    let jsonString = Request.server["RAW_POST_DATA"]!
+    let jsonData =  jsonString.data(using: .utf8)!
+
+    let json = JSON(data:jsonData)
+
+    var message = Message()
+    //thing1.id = 1
+    message.name = json["message"]["name"].string!
+    message.message = json["message"]["message"].string!
+    message.messageDate = json["message"]["messageDate"].string!
+    do {
+    	try message.save()
+    	Response.status(201).write(JSON(["success":true]).rawString() ?? "").end()
+    } catch {
+        Response("\(error)")
+
+    }
+
+}
+
+
+func readMessages() {
+
+    var contentDict = [[String: Any]]()
+
+    let messages = Message()
+    try? messages.findAll()
+    for message in messages.rows() {
+
+        let dict = message.asDataDict()
+        contentDict.append(["message":dict])
+
+    	// Response("====")
+        //     Response("\(message.id)")
+        //     Response(message.name)
+        //     Response(message.message)
+        //     Response(message.messageDate)
+    }
+
+    let json = JSON(contentDict)
+
+    if let jsonString = json.rawString() {
+        // write out the json response
+    	Response.status(200).write(jsonString).end()
+    }
+
+}
+
+
+
+class Message: SQLiteStORM {
+	var id: Int             = 0
+	var name: String        = ""
+	var message: String     = ""
+	var messageDate: String = ""
+
+	override init() {
+		super.init()
+	}
+
+	init(_ name: String, message: String, messageDate: String) {
+		super.init()
+		self.name = name
+		self.message = message
+		self.messageDate = messageDate
+	}
+
+	override func to(_ this: StORMRow) {
+		id              = this.data["id"] as? Int               ?? 0
+		name            = this.data["name"] as? String          ?? ""
+		message         = this.data["message"] as? String       ?? ""
+		messageDate     = this.data["messageDate"] as? String   ?? ""
+	}
+
+	func rows() -> [Message] {
+		var rows = [Message]()
+		for i in 0..<self.results.rows.count {
+			let row = Message()
+			row.to(self.results.rows[i])
+			rows.append(row)
+		}
+		return rows
+	}
+}
+
+
+
+
+
+
+
+main()
+%>
